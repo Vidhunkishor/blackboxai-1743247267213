@@ -2,10 +2,36 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const helmet = require('helmet');
 
 const app = express();
+app.use(helmet());
 app.use(cors());
 app.use(bodyParser.json());
+
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'secure_default_secret';
+const JWT_EXPIRES_IN = '1h';
+
+const createToken = (id) => {
+  return jwt.sign({ id }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN
+  });
+};
+
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+    req.userId = decoded.id;
+    next();
+  });
+};
+
 
 // Database setup
 const db = new sqlite3.Database('./database/attendance.db');
