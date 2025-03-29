@@ -1,19 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { FaCalendarAlt, FaCheck, FaTimes, FaClock, FaSpinner, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
 const Attendance = () => {
   const [students, setStudents] = useState([]);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    fetchStudents();
-  }, [date]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
@@ -21,7 +16,8 @@ const Attendance = () => {
       const studentsWithAttendance = await Promise.all(
         response.data.map(async (student) => {
           const attendanceRes = await axios.get(
-            `http://localhost:5000/attendance?studentId=${student.id}&date=${date}`
+                        `http://localhost:5000/attendance?studentId=${student.id}&date=${selectedDate}`
+
           );
           return {
             ...student,
@@ -30,190 +26,74 @@ const Attendance = () => {
         })
       );
       setStudents(studentsWithAttendance);
-    } catch (error) {
+    } catch (err) {
       setError('Failed to load attendance data');
-      console.error('Error fetching data:', error);
+      console.error('Error:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+    }, [selectedDate]);
+
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
 
   const handleStatusChange = async (studentId, newStatus) => {
-    setIsLoading(true);
-    setError('');
     try {
       await axios.post('http://localhost:5000/attendance', {
         studentId,
-        date,
+                date: selectedDate,
+
         status: newStatus
       });
-      setSuccess('Attendance updated successfully');
-      setTimeout(() => setSuccess(''), 3000);
       fetchStudents();
-    } catch (error) {
-      setError('Failed to update attendance');
-      console.error('Error updating attendance:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const bulkUpdateStatus = async (status) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      await Promise.all(
-        students.map(student => 
-          axios.post('http://localhost:5000/attendance', {
-            studentId: student.id,
-            date,
-            status
-          })
-        )
-      );
-      setSuccess(`All students marked as ${status}`);
-      setTimeout(() => setSuccess(''), 3000);
-      fetchStudents();
-    } catch (error) {
-      setError('Failed to bulk update attendance');
-      console.error('Error bulk updating attendance:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getStatusCounts = () => {
-    return students.reduce((acc, student) => {
-      acc[student.status] = (acc[student.status] || 0) + 1;
-      return acc;
-    }, { present: 0, absent: 0, late: 0 });
-  };
-
-  const statusCounts = getStatusCounts();
-
-  const getStatusBadge = (status) => {
-    const baseClasses = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium';
-    switch(status) {
-      case 'present':
-        return <span className={`${baseClasses} bg-green-100 text-green-800`}><FaCheck className="mr-1" /> Present</span>;
-      case 'absent':
-        return <span className={`${baseClasses} bg-red-100 text-red-800`}><FaTimes className="mr-1" /> Absent</span>;
-      case 'late':
-        return <span className={`${baseClasses} bg-yellow-100 text-yellow-800`}><FaClock className="mr-1" /> Late</span>;
-      default:
-        return <span className={`${baseClasses} bg-gray-100 text-gray-800`}>Unknown</span>;
+    } catch (err) {
+      console.error('Error updating attendance:', err);
     }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-      <div className="bg-blue-700 p-6 text-white">
-        <h2 className="text-2xl font-bold flex items-center">
-          <FaCalendarAlt className="mr-2" />
-          Attendance
-        </h2>
+    <div className="container mx-auto p-4">
+            <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Attendance</h1>
+        <input 
+          type="date" 
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="border rounded p-2"
+        />
       </div>
 
-      <div className="p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="relative flex-grow max-w-xs">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Date</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full p-3 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <FaCalendarAlt className="absolute left-3 top-11 text-gray-400" />
-          </div>
-
-          <div className="flex items-end space-x-2">
-            <button
-              onClick={() => bulkUpdateStatus('present')}
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg flex items-center transition-colors"
-            >
-              {isLoading ? <FaSpinner className="animate-spin mr-2" /> : <FaCheck className="mr-2" />}
-              Mark All Present
-            </button>
-            <button
-              onClick={() => bulkUpdateStatus('absent')}
-              disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg flex items-center transition-colors"
-            >
-              {isLoading ? <FaSpinner className="animate-spin mr-2" /> : <FaTimes className="mr-2" />}
-              Mark All Absent
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg flex items-center">
-            <FaExclamationTriangle className="mr-2" />
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg flex items-center">
-            <FaCheckCircle className="mr-2" />
-            {success}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="text-green-800 font-bold text-xl">{statusCounts.present}</div>
-            <div className="text-green-600">Present</div>
-          </div>
-          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-            <div className="text-red-800 font-bold text-xl">{statusCounts.absent}</div>
-            <div className="text-red-600">Absent</div>
-          </div>
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <div className="text-yellow-800 font-bold text-xl">{statusCounts.late}</div>
-            <div className="text-yellow-600">Late</div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Student Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
+      {isLoading && <p>Loading...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white">
+          <thead>
+            <tr>
+              <th className="py-2 px-4 border-b">Student</th>
+              <th className="py-2 px-4 border-b">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((student) => (
+              <tr key={student.id}>
+                <td className="py-2 px-4 border-b">{student.name}</td>
+                <td className="py-2 px-4 border-b">
+                  <select
+                    value={student.status}
+                    onChange={(e) => handleStatusChange(student.id, e.target.value)}
+                    className="border rounded p-1"
+                  >
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="late">Late</option>
+                  </select>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {students.map((student) => (
-                <tr key={student.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={student.status}
-                      onChange={(e) => handleStatusChange(student.id, e.target.value)}
-                      className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading}
-                    >
-                      <option value="present">Present</option>
-                      <option value="absent">Absent</option>
-                      <option value="late">Late</option>
-                    </select>
-                    <div className="mt-2 md:hidden">
-                      {getStatusBadge(student.status)}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
