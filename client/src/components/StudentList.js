@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaSave, FaTimes, FaSpinner, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaSave, FaTimes, FaSpinner, FaSort, FaSortUp, FaSortDown, FaUser, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
+
 
 const StudentList = () => {
   const [students, setStudents] = useState([]);
